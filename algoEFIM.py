@@ -12,12 +12,24 @@ class EFIM:
         self.sep: str = sep
 
         self._start_time: float = 0.0
-        self._dataset: Union['Dataset', None] = None
+        self._dataset: Union[Dataset, None] = None
+        self._utility_bin_array_LU: dict = {}
 
     def run(self) -> None:
         """Starts the EFIM algorithm."""
         self._start_time = time.time()
         self._dataset = Dataset(self.input_file, self.sep)
+
+        self.calculate_local_utilities(self._dataset)   # line 2 of Algorithm 1
+
+    def calculate_local_utilities(self, dataset: Dataset) -> None:
+        """Calculates the local utilities of all items in the dataset by using utility-bin array."""
+        for transaction in dataset.transactions:
+            for item in transaction.items:
+                if item in self._utility_bin_array_LU:
+                    self._utility_bin_array_LU[item] += transaction.transaction_utility
+                else:
+                    self._utility_bin_array_LU[item] = transaction.transaction_utility
 
 
 def parse_arguments():

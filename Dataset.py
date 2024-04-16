@@ -33,7 +33,7 @@ class Dataset:
                 transaction = self.create_transaction(items_string, trans_utility, utility_string)
                 self.transactions.append(transaction)
 
-    def create_transaction(self, items_string, trans_utility, utility_string) -> 'Transaction':
+    def create_transaction(self, items_string, trans_utility, utility_string) -> Transaction:
         """Creates a transaction object."""
         items = []
         utilities = []
