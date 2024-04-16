@@ -14,6 +14,8 @@ class EFIM:
         self._start_time: float = 0.0
         self._dataset: Union[Dataset, None] = None
         self._utility_bin_array_LU: dict = {}
+        self._old_names_to_new_names: dict = {}
+        self._new_names_to_old_names: dict = {}
 
     def run(self) -> None:
         """Starts the EFIM algorithm."""
@@ -21,6 +23,9 @@ class EFIM:
         self._dataset = Dataset(self.input_file, self.sep)
 
         self.calculate_local_utilities(self._dataset)   # line 2 of Algorithm 1
+        secondary = [item for item in self._utility_bin_array_LU if self._utility_bin_array_LU[item] >= self.min_util]
+        # Sort by the total order of TWU ascending values (line 4 of Algorithm 1)
+        secondary = sorted(secondary, key=lambda x: self._utility_bin_array_LU[x])
 
     def calculate_local_utilities(self, dataset: Dataset) -> None:
         """Calculates the local utilities of all items in the dataset by using utility-bin array."""
