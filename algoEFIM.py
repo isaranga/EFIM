@@ -1,4 +1,6 @@
 import argparse
+import logging
+import sys
 import time
 from typing import Union
 
@@ -23,9 +25,12 @@ class EFIM:
         self._dataset = Dataset(self.input_file, self.sep)
 
         self.calculate_local_utilities(self._dataset)   # line 2 of Algorithm 1
+        logger.info(f"Local utilities: {self._utility_bin_array_LU}")
+
         secondary = [item for item in self._utility_bin_array_LU if self._utility_bin_array_LU[item] >= self.min_util]
         # Sort by the total order of TWU ascending values (line 4 of Algorithm 1)
         secondary = sorted(secondary, key=lambda x: self._utility_bin_array_LU[x])
+        logger.info(f"Secondary (sorted by TWU): {secondary}")
 
     def calculate_local_utilities(self, dataset: Dataset) -> None:
         """Calculates the local utilities of all items in the dataset by using utility-bin array."""
@@ -44,8 +49,24 @@ def parse_arguments():
     parser.add_argument("input_file", help="The input file containing the transactions.")
     parser.add_argument("--min_utility", help="The minimum utility threshold.")
     parser.add_argument("--sep", help="The separator used in the input file.", default=" ")
+    parser.add_argument("--verbose", help="Prints the logs to stdout.", action="store_true")
 
     return parser.parse_args()
+
+
+def create_logger() -> logging.Logger:
+    """Creates a logger."""
+    logger: logging.Logger = logging.getLogger(__name__)
+
+    # log, and if verbose print the logs to stdout
+    if args.verbose:
+        try:
+            logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='[%(asctime)s] %(message)s', force=True)
+        except ValueError:
+            # on colab we need to force config-ing, but locally it depened on the version of python
+            logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='[%(asctime)s] %(message)s')
+
+    return logger
 
 
 if __name__ == '__main__':
@@ -56,6 +77,12 @@ if __name__ == '__main__':
     min_utility = int(args.min_utility)
     sep = args.sep
 
+    # Create a logger
+    logger = create_logger()
+
     # Run the EFIM algorithm
+    logger.info("Starting EFIM algorithm...")
     efim = EFIM(input_file, min_utility, sep)
     efim.run()
+
+    logger.info("EFIM algorithm finished.")
