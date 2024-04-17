@@ -24,13 +24,27 @@ class EFIM:
         self._start_time = time.time()
         self._dataset = Dataset(self.input_file, self.sep)
 
-        self.calculate_local_utilities(self._dataset)   # line 2 of Algorithm 1
+        self.calculate_local_utilities(self._dataset)  # line 2 of Algorithm 1
         logger.info(f"Local utilities: {self._utility_bin_array_LU}")
 
+        # secondary holds the promising items (those having a TWU >= minutil)
         secondary = [item for item in self._utility_bin_array_LU if self._utility_bin_array_LU[item] >= self.min_util]
         # Sort by the total order of TWU ascending values (line 4 of Algorithm 1)
         secondary = sorted(secondary, key=lambda x: self._utility_bin_array_LU[x])
         logger.info(f"Secondary (sorted by TWU): {secondary}")
+
+        self.rename_promising_items(secondary)
+
+    def rename_promising_items(self, secondary):
+        """Rename promising items according to the increasing order of TWU.
+        This will allow very fast comparison between items later by the algorithm
+        We will give the new names starting from the name '1'."""
+        current_name = 1
+        for idx, item in enumerate(secondary):
+            self._old_names_to_new_names[item] = current_name
+            self._new_names_to_old_names[current_name] = item
+            secondary[idx] = current_name
+            current_name += 1
 
     def calculate_local_utilities(self, dataset: Dataset) -> None:
         """Calculates the local utilities of all items in the dataset by using utility-bin array."""
