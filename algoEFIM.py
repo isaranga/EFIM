@@ -45,6 +45,12 @@ class EFIM:
         self.sort_dataset(self._dataset.transactions)
         logger.info(f"Transactions after sorting: {self._dataset.transactions}")
 
+        # Remove empty transactions
+        empty_transactions_count = len([transaction for transaction in self._dataset.transactions
+                                       if not transaction.items])
+        self._dataset.transactions = self._dataset.transactions[empty_transactions_count:]
+        logger.info(f"{empty_transactions_count} empty transactions removed.")
+
     def rename_promising_items(self, secondary):
         """Rename promising items according to the increasing order of TWU.
         This will allow very fast comparison between items later by the algorithm
