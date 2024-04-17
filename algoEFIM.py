@@ -1,10 +1,12 @@
 import argparse
+import functools
 import logging
 import sys
 import time
 from typing import Union
 
 from Dataset import Dataset
+from Transaction import Transaction
 
 
 class EFIM:
@@ -40,6 +42,9 @@ class EFIM:
 
         logger.info(f"Transactions after removing unpromising items: {self._dataset.transactions}")
 
+        self.sort_dataset(self._dataset.transactions)
+        logger.info(f"Transactions after sorting: {self._dataset.transactions}")
+
     def rename_promising_items(self, secondary):
         """Rename promising items according to the increasing order of TWU.
         This will allow very fast comparison between items later by the algorithm
@@ -59,6 +64,47 @@ class EFIM:
                     self._utility_bin_array_LU[item] += transaction.transaction_utility
                 else:
                     self._utility_bin_array_LU[item] = transaction.transaction_utility
+
+    def sort_dataset(self, transactions: list) -> None:
+        cmp_items = functools.cmp_to_key(self.compare_transaction)
+        transactions.sort(key=cmp_items)
+
+    @staticmethod
+    def compare_transaction(trans1: Transaction, trans2: Transaction) -> int:
+        """Compares two transactions according to the proposed total order on transaction (the lexicographical
+        order when transactions are read backward)"""
+        # we will compare the two transaction item by item starting from the last items
+        trans1_items = trans1.items
+        trans2_items = trans2.items
+        pos1 = len(trans1_items) - 1
+        pos2 = len(trans2_items) - 1
+
+        if len(trans1_items) < len(trans2_items):
+            while pos1 >= 0:
+                diff = trans2_items[pos2] - trans1_items[pos1]
+                if diff != 0:
+                    return diff
+                pos1 -= 1
+                pos2 -= 1
+            return -1
+
+        elif len(trans1_items) > len(trans2_items):
+            while pos2 >= 0:
+                diff = trans2_items[pos2] - trans1_items[pos1]
+                if diff != 0:
+                    return diff
+                pos1 -= 1
+                pos2 -= 1
+            return 1
+
+        else:
+            while pos2 >= 0:
+                diff = trans2_items[pos2] - trans1_items[pos1]
+                if diff != 0:
+                    return diff
+                pos1 -= 1
+                pos2 -= 1
+            return 0
 
 
 def parse_arguments():
