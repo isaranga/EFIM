@@ -35,6 +35,11 @@ class EFIM:
 
         self.rename_promising_items(secondary)
 
+        for transaction in self._dataset.transactions:
+            transaction.remove_unpromising_items(self._old_names_to_new_names)
+
+        logger.info(f"Transactions after removing unpromising items: {self._dataset.transactions}")
+
     def rename_promising_items(self, secondary):
         """Rename promising items according to the increasing order of TWU.
         This will allow very fast comparison between items later by the algorithm
