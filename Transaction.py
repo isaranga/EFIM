@@ -3,6 +3,8 @@ class Transaction:
     A class representing a single transaction of a dataset.
     """
 
+    offset: int = 0
+
     def __init__(self, items: list, trans_utility: int, utilities: list) -> None:
         self.items: list = items
         self.transaction_utility: int = trans_utility

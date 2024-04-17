@@ -21,6 +21,10 @@ class EFIM:
         self._utility_bin_array_SU: dict = {}
         self._old_names_to_new_names: dict = {}
         self._new_names_to_old_names: dict = {}
+        self._candidate_count: int = 0
+        self._temp: list[int] = [0] * 5000
+        self._pattern_count: int = 0
+        self._final_patterns: dict = {}
 
     def run(self) -> None:
         """Starts the EFIM algorithm."""
@@ -61,6 +65,9 @@ class EFIM:
         # primary holds items in secondary that have a subtree utility >= minutil
         primary = [item for item in secondary if self._utility_bin_array_SU[item] >= self.min_util]
         logger.info(f"Primary: {primary}")
+
+        # Call the recursive Search procedure
+        self.search(self._dataset.transactions, secondary, primary, prefix_length=0)
 
     def rename_promising_items(self, secondary):
         """Rename promising items according to the increasing order of TWU.
@@ -138,6 +145,191 @@ class EFIM:
                     self._utility_bin_array_SU[item] += sum_SU
                 else:
                     self._utility_bin_array_SU[item] = sum_SU
+                i -= 1
+
+    def search(self, transactions_of_P: list, secondary: list, primary: list, prefix_length: int) -> None:
+        """
+        Recursive method to find all high-utility itemsets.
+        :param transactions_of_P: list of transactions containing the current prefix
+        :param secondary: list of secondary items in the projected database
+        :param primary: list of primary items in the projected database
+        :param prefix_length: length of the current prefix
+        """
+        # update the number of candidates explored so far
+        self._candidate_count += len(primary)
+
+        for idx, e in enumerate(primary):  # line 1 of Algorithm 2
+            # ========== PERFORM INTERSECTION =====================
+            # Calculate transactions containing P U {e}
+            # At the same time project transactions to keep what appears after "e"
+            transactions_Pe: list[Transaction] = []
+            # variable to calculate the utility of P U {e}
+            utility_Pe: int = 0
+            # For merging transactions, we will keep track of the last transaction read
+            # and the number of identical consecutive transactions
+            previous_transaction: Transaction = transactions_of_P[0]
+            consecutive_merge_count: int = 0
+
+            for transaction in transactions_of_P:
+                items = transaction.items
+                if e in items:
+                    position_e = items.index(e)
+                    # optimization: if the 'e' is the last one in this transaction,
+                    # we don't keep the transaction
+                    if position_e == len(items) - 1:
+                        # we still update the sum of the utility of P U {e}
+                        utility_Pe += transaction.utilities[position_e] + transaction.prefix_utility
+                    else:
+                        # we cut the transaction starting from position 'e'
+                        projected_transaction = transaction.project_transaction(position_e)
+                        utility_Pe += projected_transaction.prefix_utility
+
+                        # if it is the first transaction that we read
+                        if previous_transaction == transactions_of_P[0]:
+                            previous_transaction = projected_transaction
+                        elif self._is_equal(projected_transaction, previous_transaction):
+                            # we merge the transaction with the previous one
+
+                            # if it's the first consecutive merge
+                            if consecutive_merge_count == 0:
+                                items = previous_transaction.items[previous_transaction.offset:]
+                                utilities = previous_transaction.utilities[previous_transaction.offset:]
+
+                                items_count = len(items)  # TODO doesn't appear in the Java code?
+
+                                # make the sum of utilities from the previous transaction
+                                position_previous = 0
+                                position_projection = projected_transaction.offset
+                                while position_previous < items_count:
+                                    utilities[position_previous] += projected_transaction.utilities[position_projection]
+                                    position_previous += 1
+                                    position_projection += 1
+
+                                previous_transaction.prefix_utility += projected_transaction.prefix_utility  # TODO check
+
+                                # make the sum of prefix utilities
+                                sum_utilities = previous_transaction.prefix_utility  # TODO check
+
+                                # create a new transaction replacing the two merged transactions
+                                previous_transaction = Transaction(items, utilities,
+                                                                   previous_transaction.transaction_utility +
+                                                                   projected_transaction.transaction_utility)
+                                previous_transaction.prefix_utility = sum_utilities
+                            else:
+                                # if not the first consecutive merge
+
+                                # add the utilities in the projected transaction to the previously merged transaction
+                                position_previous = 0
+                                position_projection = projected_transaction.offset
+                                items_count = len(previous_transaction.items)
+                                while position_previous < items_count:
+                                    previous_transaction.utilities[position_previous] += \
+                                        projected_transaction.utilities[position_projection]
+                                    position_previous += 1
+                                    position_projection += 1
+
+                                # make also the sum of transaction utility and prefix utility
+                                previous_transaction.transaction_utility += projected_transaction.transaction_utility
+                                previous_transaction.prefix_utility += projected_transaction.transaction_utility
+
+                            consecutive_merge_count += 1
+                        else:
+                            # if the transaction is not equal to the preceding transaction
+                            # we cannot merge it, so we just add it to the database
+                            transactions_Pe.append(projected_transaction)
+                            previous_transaction = projected_transaction
+                            consecutive_merge_count = 0
+                    # This is an optimization for binary search:
+                    # we remember the position of "e" so that for the next item, we will not search
+                    # before "e" in the transaction since items are visited in lexicographical order
+                    transaction.offset = position_e
+                # TODO no 'else' clause for 'if e in items'? Java code has it
+            # end for
+
+            # Add the last read transaction to the database if there is one
+            if previous_transaction != transactions_of_P[0]:
+                transactions_Pe.append(previous_transaction)
+
+            # Append item "e" to P to obtain P U {e}
+            # but at the same time translate from new name of "e"  to its old name
+            self._temp[prefix_length] = self._new_names_to_old_names[e]
+
+            # if the utility of PU{e} is enough to be a high utility itemset
+            if utility_Pe >= self.min_util:
+                self._output(prefix_length, utility_Pe)
+
+            # Next, we calculate the Local Utility and Sub-tree utility
+            # of all items that could be appended to P U {e}
+            self._calculate_upper_bounds(transactions_Pe, idx, secondary)
+
+            # We create new lists of secondary and primary items
+            new_secondary: list[int] = []
+            new_primary: list[int] = []
+            for k in range(idx + 1, len(secondary)):
+                item_k = secondary[k]
+                if self._utility_bin_array_SU[item_k] >= self.min_util:
+                    new_secondary.append(item_k)
+                    new_primary.append(item_k)
+                elif self._utility_bin_array_LU[item_k] >= self.min_util:
+                    new_secondary.append(item_k)
+
+            if len(transactions_Pe) != 0:  # TODO not in Java code
+                self.search(transactions_Pe, new_secondary, new_primary, prefix_length + 1)
+
+    @staticmethod
+    def _is_equal(transaction1: Transaction, transaction2: Transaction) -> bool:
+        """Check if two transaction are identical.
+        Two transactions are identical if they are of the same length and have the same items in the same places."""
+        length1 = len(transaction1.items) - transaction1.offset
+        length2 = len(transaction2.items) - transaction2.offset
+        if length1 != length2:
+            return False
+
+        position1 = transaction1.offset
+        position2 = transaction2.offset
+        while position1 < len(transaction1.items):
+            if transaction1.items[position1] != transaction2.items[position2]:
+                return False
+            position1 += 1
+            position2 += 1
+
+        return True
+
+        pass
+
+    def _output(self, temp_position, utility):
+        """Saves a high-utility itemset."""
+        self._pattern_count += 1
+        s1 = str()
+
+        for i in range(temp_position + 1):
+            s1 += self._dataset.int_to_str.get((self._temp[i]))
+            if i != temp_position:
+                s1 += " "  # "\t"
+        self._final_patterns[s1] = str(utility)
+
+    def _calculate_upper_bounds(self, transactions_Pe: list, j: int, secondary: list) -> None:
+        """Calculates the subtree utility and local utility of all items that can extend itemset P U {e},
+        using a utility-bin array."""
+        # For each promising item > e according to the total order
+        for i in range(j + 1, len(secondary)):
+            item = secondary[i]
+            # We reset the utility bins of that item for computing the subtree utility and local utility
+            self._utility_bin_array_LU[item] = 0
+            self._utility_bin_array_SU[item] = 0
+
+        for transaction in transactions_Pe:
+            sum_remaining_utility = 0
+            # for each item in the transaction that is greater than i when reading the transaction backward
+            # Note: >= is correct here. It should not be >.
+            i = len(transaction.get_items()) - 1
+            while i >= transaction.offset:
+                item = transaction.items[i]
+                # if the item is promising
+                if item in secondary:
+                    sum_remaining_utility += transaction.get_utilities()[i]
+                    self._utility_bin_array_SU[item] += sum_remaining_utility + transaction.prefix_utility
+                    self._utility_bin_array_LU[item] += transaction.transaction_utility + transaction.prefix_utility
                 i -= 1
 
 
