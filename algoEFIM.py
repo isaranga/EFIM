@@ -58,6 +58,10 @@ class EFIM:
         self.calculate_subtree_utility(self._dataset)
         logger.info(f"Subtree utilities: {self._utility_bin_array_SU}")
 
+        # primary holds items in secondary that have a subtree utility >= minutil
+        primary = [item for item in secondary if self._utility_bin_array_SU[item] >= self.min_util]
+        logger.info(f"Primary: {primary}")
+
     def rename_promising_items(self, secondary):
         """Rename promising items according to the increasing order of TWU.
         This will allow very fast comparison between items later by the algorithm
