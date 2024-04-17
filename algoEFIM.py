@@ -18,6 +18,7 @@ class EFIM:
         self._start_time: float = 0.0
         self._dataset: Union[Dataset, None] = None
         self._utility_bin_array_LU: dict = {}
+        self._utility_bin_array_SU: dict = {}
         self._old_names_to_new_names: dict = {}
         self._new_names_to_old_names: dict = {}
 
@@ -47,9 +48,15 @@ class EFIM:
 
         # Remove empty transactions
         empty_transactions_count = len([transaction for transaction in self._dataset.transactions
-                                       if not transaction.items])
+                                        if not transaction.items])
+        # To remove empty transactions, we just ignore the first transactions of the dataset, since transactions
+        # are sorted by size and therefore empty transactions are always at the begining of the dataset
         self._dataset.transactions = self._dataset.transactions[empty_transactions_count:]
         logger.info(f"{empty_transactions_count} empty transactions removed.")
+
+        # Calculate the subtree utility of each item in secondary using a utility-bin array
+        self.calculate_subtree_utility(self._dataset)
+        logger.info(f"Subtree utilities: {self._utility_bin_array_SU}")
 
     def rename_promising_items(self, secondary):
         """Rename promising items according to the increasing order of TWU.
@@ -111,6 +118,23 @@ class EFIM:
                 pos1 -= 1
                 pos2 -= 1
             return 0
+
+    def calculate_subtree_utility(self, dataset: Dataset) -> None:
+        """Scan the initial dataset to calculate the subtree utility of each item using a utility-bin array"""
+        for transaction in dataset.transactions:
+            # We will scan the transaction backwards. Thus, the current subtree utility in that transaction is zero
+            # for the last item of the transaction.
+            sum_SU: int = 0
+
+            i = len(transaction.items) - 1
+            while i >= 0:
+                item = transaction.items[i]
+                sum_SU += transaction.utilities[i]
+                if item in self._utility_bin_array_SU.keys():
+                    self._utility_bin_array_SU[item] += sum_SU
+                else:
+                    self._utility_bin_array_SU[item] = sum_SU
+                i -= 1
 
 
 def parse_arguments():
