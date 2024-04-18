@@ -176,39 +176,40 @@ class EFIM:
 
             for transaction in transactions_of_P:
                 items = transaction.items
-                if e in items:
-                    position_e = items.index(e)
-                    # optimization: if the 'e' is the last one in this transaction,
-                    # we don't keep the transaction
-                    if position_e == len(items) - 1:
-                        # we still update the sum of the utility of P U {e}
-                        utility_Pe += transaction.utilities[position_e] + transaction.prefix_utility
-                    else:
-                        # we cut the transaction starting from position 'e'
-                        projected_transaction = transaction.project_transaction(position_e)
-                        utility_Pe += projected_transaction.prefix_utility
 
-                        # if it is the first transaction that we read
-                        if previous_transaction == transactions_of_P[0]:
-                            previous_transaction = projected_transaction
-                        elif self._is_equal(projected_transaction, previous_transaction):
-                            # we merge the transaction with the previous one
-                            first_merge = consecutive_merge_count == 0
-                            previous_transaction = self.merge_transactions(first_merge, previous_transaction,
-                                                                           projected_transaction)
-                            consecutive_merge_count += 1
-                        else:
-                            # if the transaction is not equal to the preceding transaction
-                            # we cannot merge it, so we just add it to the database
-                            transactions_Pe.append(projected_transaction)
-                            previous_transaction = projected_transaction
-                            consecutive_merge_count = 0
-                    # This is an optimization for binary search:
-                    # we remember the position of "e" so that for the next item, we will not search
-                    # before "e" in the transaction since items are visited in lexicographical order
-                    transaction.offset = position_e
-                # TODO no 'else' clause for 'if e in items'? Java code has it
-            # end for
+                if e not in items:
+                    continue
+
+                position_e = items.index(e)
+                # optimization: if the 'e' is the last one in this transaction,
+                # we don't keep the transaction
+                if position_e == len(items) - 1:
+                    # we still update the sum of the utility of P U {e}
+                    utility_Pe += transaction.utilities[position_e] + transaction.prefix_utility
+                else:
+                    # we cut the transaction starting from position 'e'
+                    projected_transaction = transaction.project_transaction(position_e)
+                    utility_Pe += projected_transaction.prefix_utility
+
+                    # if it is the first transaction that we read
+                    if previous_transaction == transactions_of_P[0]:
+                        previous_transaction = projected_transaction
+                    elif self._is_equal(projected_transaction, previous_transaction):
+                        # we merge the transaction with the previous one
+                        is_first_merge = consecutive_merge_count == 0
+                        previous_transaction = self.merge_transactions(is_first_merge, previous_transaction,
+                                                                       projected_transaction)
+                        consecutive_merge_count += 1
+                    else:
+                        # if the transaction is not equal to the preceding transaction
+                        # we cannot merge it, so we just add it to the database
+                        transactions_Pe.append(projected_transaction)
+                        previous_transaction = projected_transaction
+                        consecutive_merge_count = 0
+                # This is an optimization for binary search:
+                # we remember the position of "e" so that for the next item, we will not search
+                # before "e" in the transaction since items are visited in lexicographical order
+                transaction.offset = position_e
 
             # Add the last read transaction to the database if there is one
             if previous_transaction != transactions_of_P[0]:
@@ -237,7 +238,7 @@ class EFIM:
                 elif self._utility_bin_array_LU[item_k] >= self.min_util:
                     new_secondary.append(item_k)
 
-            if len(transactions_Pe) != 0:  # TODO not in Java code
+            if len(transactions_Pe) != 0:
                 self.search(transactions_Pe, new_secondary, new_primary, prefix_length + 1)
 
     @staticmethod
@@ -300,8 +301,6 @@ class EFIM:
             position2 += 1
 
         return True
-
-        pass
 
     def _output(self, temp_position, utility):
         """Saves a high-utility itemset."""
