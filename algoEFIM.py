@@ -335,6 +335,13 @@ class EFIM:
                     self._utility_bin_array_LU[item] += transaction.transaction_utility + transaction.prefix_utility
                 i -= 1
 
+    def print_results(self) -> None:
+        """Prints the results of the EFIM algorithm."""
+        print(f"Number of high-utility itemsets: {self._pattern_count}")
+        print("High-utility itemsets:")
+        for pattern, utility in self._final_patterns.items():
+            print(f"\t{pattern} : {utility}")
+
 
 def parse_arguments():
     """Parses the commandline arguments."""
@@ -378,5 +385,4 @@ if __name__ == '__main__':
     logger.info("Starting EFIM algorithm...")
     efim = EFIM(input_file, min_utility, sep)
     efim.run()
-
-    logger.info("EFIM algorithm finished.")
+    efim.print_results()
