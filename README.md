@@ -13,3 +13,5 @@ optional arguments:
   --sep SEP             The separator used in the input file.
   --verbose             Prints the logs to stdout.
 ```
+For example:
+```algoEFIM.py example-Zida.txt --min_utility 30 --verbose ```
