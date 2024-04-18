@@ -16,6 +16,7 @@ class EFIM:
         self.sep: str = sep
 
         self._start_time: float = 0.0
+        self._end_time: float = 0.0
         self._dataset: Union[Dataset, None] = None
         self._utility_bin_array_LU: dict = {}
         self._utility_bin_array_SU: dict = {}
@@ -68,6 +69,9 @@ class EFIM:
 
         # Call the recursive Search procedure
         self.search(self._dataset.transactions, secondary, primary, prefix_length=0)
+
+        self._end_time = time.time()
+        logger.info(f"EFIM algorithm finished in {self._end_time - self._start_time:.2f} seconds.")
 
     def rename_promising_items(self, secondary):
         """Rename promising items according to the increasing order of TWU.
@@ -211,9 +215,8 @@ class EFIM:
                                 sum_utilities = previous_transaction.prefix_utility  # TODO check
 
                                 # create a new transaction replacing the two merged transactions
-                                previous_transaction = Transaction(items, utilities,
-                                                                   previous_transaction.transaction_utility +
-                                                                   projected_transaction.transaction_utility)
+                                trans_utility = previous_transaction.transaction_utility + projected_transaction.transaction_utility
+                                previous_transaction = Transaction(items, trans_utility, utilities)
                                 previous_transaction.prefix_utility = sum_utilities
                             else:
                                 # if not the first consecutive merge
@@ -322,12 +325,12 @@ class EFIM:
             sum_remaining_utility = 0
             # for each item in the transaction that is greater than i when reading the transaction backward
             # Note: >= is correct here. It should not be >.
-            i = len(transaction.get_items()) - 1
+            i = len(transaction.items) - 1
             while i >= transaction.offset:
                 item = transaction.items[i]
                 # if the item is promising
                 if item in secondary:
-                    sum_remaining_utility += transaction.get_utilities()[i]
+                    sum_remaining_utility += transaction.utilities[i]
                     self._utility_bin_array_SU[item] += sum_remaining_utility + transaction.prefix_utility
                     self._utility_bin_array_LU[item] += transaction.transaction_utility + transaction.prefix_utility
                 i -= 1

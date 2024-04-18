@@ -4,6 +4,7 @@ class Transaction:
     """
 
     offset: int = 0
+    prefix_utility: int = 0
 
     def __init__(self, items: list, trans_utility: int, utilities: list) -> None:
         self.items: list = items
@@ -48,3 +49,22 @@ class Transaction:
 
             self.items[j + 1] = key
             self.utilities[j + 1] = utility_j
+
+    def project_transaction(self, offset_e: int):
+        """Creates a new Transaction from this transaction starting from offset until the end."""
+        new_transaction = Transaction(self.items, self.transaction_utility, self.utilities)
+        utility_e = self.utilities[offset_e]
+
+        # Add the  utility of item e to the utility of the whole prefix used to project the transaction
+        new_transaction.prefix_utility = self.prefix_utility + utility_e
+
+        # Calculate the remaining utility.
+        # It is the transaction utility minus the profit of the element that was removed
+        new_transaction.transaction_utility = self.transaction_utility - utility_e
+        # Subtract the utility of all items before e but after the previous offset
+        for i in range(self.offset, offset_e):
+            new_transaction.transaction_utility -= self.utilities[i]
+
+        new_transaction.offset = offset_e + 1
+
+        return new_transaction
