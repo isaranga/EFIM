@@ -193,48 +193,9 @@ class EFIM:
                             previous_transaction = projected_transaction
                         elif self._is_equal(projected_transaction, previous_transaction):
                             # we merge the transaction with the previous one
-
-                            # if it's the first consecutive merge
-                            if consecutive_merge_count == 0:
-                                items = previous_transaction.items[previous_transaction.offset:]
-                                utilities = previous_transaction.utilities[previous_transaction.offset:]
-
-                                items_count = len(items)  # TODO doesn't appear in the Java code?
-
-                                # make the sum of utilities from the previous transaction
-                                position_previous = 0
-                                position_projection = projected_transaction.offset
-                                while position_previous < items_count:
-                                    utilities[position_previous] += projected_transaction.utilities[position_projection]
-                                    position_previous += 1
-                                    position_projection += 1
-
-                                previous_transaction.prefix_utility += projected_transaction.prefix_utility  # TODO check
-
-                                # make the sum of prefix utilities
-                                sum_utilities = previous_transaction.prefix_utility  # TODO check
-
-                                # create a new transaction replacing the two merged transactions
-                                trans_utility = previous_transaction.transaction_utility + projected_transaction.transaction_utility
-                                previous_transaction = Transaction(items, trans_utility, utilities)
-                                previous_transaction.prefix_utility = sum_utilities
-                            else:
-                                # if not the first consecutive merge
-
-                                # add the utilities in the projected transaction to the previously merged transaction
-                                position_previous = 0
-                                position_projection = projected_transaction.offset
-                                items_count = len(previous_transaction.items)
-                                while position_previous < items_count:
-                                    previous_transaction.utilities[position_previous] += \
-                                        projected_transaction.utilities[position_projection]
-                                    position_previous += 1
-                                    position_projection += 1
-
-                                # make also the sum of transaction utility and prefix utility
-                                previous_transaction.transaction_utility += projected_transaction.transaction_utility
-                                previous_transaction.prefix_utility += projected_transaction.transaction_utility
-
+                            first_merge = consecutive_merge_count == 0
+                            previous_transaction = self.merge_transactions(first_merge, previous_transaction,
+                                                                           projected_transaction)
                             consecutive_merge_count += 1
                         else:
                             # if the transaction is not equal to the preceding transaction
@@ -278,6 +239,48 @@ class EFIM:
 
             if len(transactions_Pe) != 0:  # TODO not in Java code
                 self.search(transactions_Pe, new_secondary, new_primary, prefix_length + 1)
+
+    @staticmethod
+    def merge_transactions(first_merge: bool, transaction1: Transaction, transaction2: Transaction) -> Transaction:
+        """Merge transaction2 into transaction1 and return transaction1."""
+        if first_merge:
+            items = transaction1.items[transaction1.offset:]
+            utilities = transaction1.utilities[transaction1.offset:]
+
+            items_count = len(items)
+
+            # make the sum of utilities from the previous transaction
+            position_previous = 0
+            position_projection = transaction2.offset
+            while position_previous < items_count:
+                utilities[position_previous] += transaction2.utilities[position_projection]
+                position_previous += 1
+                position_projection += 1
+
+            transaction1.prefix_utility += transaction2.prefix_utility
+
+            # make the sum of prefix utilities
+            sum_prefix_utilities = transaction1.prefix_utility
+
+            # create a new transaction replacing the two merged transactions
+            trans_utility = transaction1.transaction_utility + transaction2.transaction_utility
+            transaction1 = Transaction(items, trans_utility, utilities)
+            transaction1.prefix_utility = sum_prefix_utilities
+        else:
+            # add the utilities in the projected transaction to the previously merged transaction
+            position_previous = 0
+            position_projection = transaction2.offset
+            items_count = len(transaction1.items)
+            while position_previous < items_count:
+                transaction1.utilities[position_previous] += transaction2.utilities[position_projection]
+                position_previous += 1
+                position_projection += 1
+
+            # make also the sum of transaction utility and prefix utility
+            transaction1.transaction_utility += transaction2.transaction_utility
+            transaction1.prefix_utility += transaction2.transaction_utility
+
+        return transaction1
 
     @staticmethod
     def _is_equal(transaction1: Transaction, transaction2: Transaction) -> bool:
