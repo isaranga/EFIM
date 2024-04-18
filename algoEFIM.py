@@ -166,59 +166,14 @@ class EFIM:
             # ========== PERFORM INTERSECTION =====================
             # Calculate transactions containing P U {e}
             # At the same time project transactions to keep what appears after "e"
-            transactions_Pe: list[Transaction] = []
+            transactions_Pe: list[Transaction] = []  # --> alpha - D in the paper
             # variable to calculate the utility of P U {e}
-            utility_Pe: int = 0
-            # For merging transactions, we will keep track of the last transaction read
-            # and the number of identical consecutive transactions
-            previous_transaction: Transaction = transactions_of_P[0]
-            consecutive_merge_count: int = 0
+            utility_Pe: int = 0  # --> u(beta) in the paper
+            # --> scan alpha - D (line 3 of Algorithm 2)
+            transactions_Pe, utility_Pe = self.scan_database(e, prefix_length, transactions_Pe, transactions_of_P,
+                                                             utility_Pe)
 
-            for transaction in transactions_of_P:
-                items = transaction.items
-
-                if e not in items:
-                    continue
-
-                position_e = items.index(e)
-                # optimization: if the 'e' is the last one in this transaction,
-                # we don't keep the transaction
-                if position_e == len(items) - 1:
-                    # we still update the sum of the utility of P U {e}
-                    utility_Pe += transaction.utilities[position_e] + transaction.prefix_utility
-                else:
-                    # we cut the transaction starting from position 'e'
-                    projected_transaction = transaction.project_transaction(position_e)
-                    utility_Pe += projected_transaction.prefix_utility
-
-                    # if it is the first transaction that we read
-                    if previous_transaction == transactions_of_P[0]:
-                        previous_transaction = projected_transaction
-                    elif self._is_equal(projected_transaction, previous_transaction):
-                        # we merge the transaction with the previous one
-                        is_first_merge = consecutive_merge_count == 0
-                        previous_transaction = self.merge_transactions(is_first_merge, previous_transaction,
-                                                                       projected_transaction)
-                        consecutive_merge_count += 1
-                    else:
-                        # if the transaction is not equal to the preceding transaction
-                        # we cannot merge it, so we just add it to the database
-                        transactions_Pe.append(projected_transaction)
-                        previous_transaction = projected_transaction
-                        consecutive_merge_count = 0
-                # This is an optimization for binary search:
-                # we remember the position of "e" so that for the next item, we will not search
-                # before "e" in the transaction since items are visited in lexicographical order
-                transaction.offset = position_e
-
-            # Add the last read transaction to the database if there is one
-            if previous_transaction != transactions_of_P[0]:
-                transactions_Pe.append(previous_transaction)
-
-            # Append item "e" to P to obtain P U {e}
-            # but at the same time translate from new name of "e"  to its old name
-            self._temp[prefix_length] = self._new_names_to_old_names[e]
-
+            # --> line 4 of Algorithm 2
             # if the utility of PU{e} is enough to be a high utility itemset
             if utility_Pe >= self.min_util:
                 self._output(prefix_length, utility_Pe)
@@ -228,6 +183,7 @@ class EFIM:
             self._calculate_upper_bounds(transactions_Pe, idx, secondary)
 
             # We create new lists of secondary and primary items
+            # --> lines 5-6 of Algorithm 2
             new_secondary: list[int] = []
             new_primary: list[int] = []
             for k in range(idx + 1, len(secondary)):
@@ -238,8 +194,61 @@ class EFIM:
                 elif self._utility_bin_array_LU[item_k] >= self.min_util:
                     new_secondary.append(item_k)
 
+            # --> line 7 of Algorithm 2
             if len(transactions_Pe) != 0:
                 self.search(transactions_Pe, new_secondary, new_primary, prefix_length + 1)
+
+    def scan_database(self, e, prefix_length, transactions_Pe, transactions_of_P, utility_Pe):
+        """Scan the database to calculate the utility of P U {e} and project transactions to obtain transactions_Pe."""
+        # For merging transactions, we will keep track of the last transaction read
+        # and the number of identical consecutive transactions
+        previous_transaction: Transaction = transactions_of_P[0]
+        consecutive_merge_count: int = 0
+
+        for transaction in transactions_of_P:
+            items = transaction.items
+
+            if e not in items:
+                continue
+
+            position_e = items.index(e)
+            # optimization: if the 'e' is the last one in this transaction,
+            # we don't keep the transaction
+            if position_e == len(items) - 1:
+                # we still update the sum of the utility of P U {e}
+                utility_Pe += transaction.utilities[position_e] + transaction.prefix_utility
+            else:
+                # we cut the transaction starting from position 'e'
+                projected_transaction = transaction.project_transaction(position_e)
+                utility_Pe += projected_transaction.prefix_utility
+
+                # if it is the first transaction that we read
+                if previous_transaction == transactions_of_P[0]:
+                    previous_transaction = projected_transaction
+                elif self._is_equal(projected_transaction, previous_transaction):
+                    # we merge the transaction with the previous one
+                    is_first_merge = consecutive_merge_count == 0
+                    previous_transaction = self.merge_transactions(is_first_merge, previous_transaction,
+                                                                   projected_transaction)
+                    consecutive_merge_count += 1
+                else:
+                    # if the transaction is not equal to the preceding transaction
+                    # we cannot merge it, so we just add it to the database
+                    transactions_Pe.append(projected_transaction)
+                    previous_transaction = projected_transaction
+                    consecutive_merge_count = 0
+            # This is an optimization for binary search:
+            # we remember the position of "e" so that for the next item, we will not search
+            # before "e" in the transaction since items are visited in lexicographical order
+            transaction.offset = position_e
+        # Add the last read transaction to the database if there is one
+        if previous_transaction != transactions_of_P[0]:
+            transactions_Pe.append(previous_transaction)
+        # Append item "e" to P to obtain P U {e}
+        # but at the same time translate from new name of "e"  to its old name
+        self._temp[prefix_length] = self._new_names_to_old_names[e]
+
+        return transactions_Pe, utility_Pe
 
     @staticmethod
     def merge_transactions(first_merge: bool, transaction1: Transaction, transaction2: Transaction) -> Transaction:
