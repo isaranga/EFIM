@@ -26,6 +26,8 @@ class Dataset:
         self.transactions = []
         with open(input_file, "r") as file:
             for line in file:
+                if line.startswith('#'):
+                    continue
                 trans_list = line.strip().split(':')
                 items_string = trans_list[0].strip().split(self.sep)
                 trans_utility = int(trans_list[1])
