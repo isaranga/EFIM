@@ -5,7 +5,7 @@ usage: algoEFIM.py [-h] [--min_utility MIN_UTILITY] [--sep SEP] [--verbose] inpu
 
 positional arguments:
   input_file            The input file containing the transactions.
-
+  --output_file         Output file name for patterns found.
 optional arguments:
   -h, --help            show this help message and exit
   --min_utility MIN_UTILITY
