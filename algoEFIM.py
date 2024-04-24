@@ -31,17 +31,18 @@ class EFIM:
         """Starts the EFIM algorithm."""
         self._start_time = time.time()
         self._dataset = Dataset(self.input_file, self.sep)
-
+        logger.info(f"Items int to str: {sorted(self._dataset.int_to_str.items())}")
         self.calculate_local_utilities(self._dataset)  # line 2 of Algorithm 1
-        logger.info(f"Local utilities: {self._utility_bin_array_LU}")
+        logger.info(f"Local utilities: {[str(key)+'('+self._dataset.int_to_str[key]+'): '+str(val) for key, val in self._utility_bin_array_LU.items()]}")
 
         # secondary holds the promising items (those having a TWU >= minutil)
         secondary = [item for item in self._utility_bin_array_LU if self._utility_bin_array_LU[item] >= self.min_util]
         # Sort by the total order of TWU ascending values (line 4 of Algorithm 1)
         secondary = sorted(secondary, key=lambda x: self._utility_bin_array_LU[x])
-        logger.info(f"Secondary (sorted by TWU): {secondary}")
+        logger.info(f"Secondary (sorted by TWU): {[str(x)+'('+self._dataset.int_to_str[x]+')' for x in secondary]}")
 
         self.rename_promising_items(secondary)
+        logger.info(f"Renaming (old name, new name): {[self._dataset.int_to_str[x]+':('+str(x)+', '+str(self._old_names_to_new_names[x])+')' for x in sorted(self._old_names_to_new_names, key=lambda x: self._old_names_to_new_names[x])]}")
 
         for transaction in self._dataset.transactions:
             transaction.remove_unpromising_items(self._old_names_to_new_names)
@@ -61,7 +62,7 @@ class EFIM:
 
         # Calculate the subtree utility of each item in secondary using a utility-bin array
         self.calculate_subtree_utility(self._dataset)
-        logger.info(f"Subtree utilities: {self._utility_bin_array_SU}")
+        logger.info(f"Subtree utilities: {[str(key)+'('+self._dataset.int_to_str[self._new_names_to_old_names[key]]+'): '+str(val) for key, val in self._utility_bin_array_SU.items()]}")
 
         # primary holds items in secondary that have a subtree utility >= minutil
         primary = [item for item in secondary if self._utility_bin_array_SU[item] >= self.min_util]
@@ -234,7 +235,7 @@ class EFIM:
                 else:
                     # if the transaction is not equal to the preceding transaction
                     # we cannot merge it, so we just add it to the database
-                    transactions_Pe.append(projected_transaction)
+                    transactions_Pe.append(previous_transaction)
                     previous_transaction = projected_transaction
                     consecutive_merge_count = 0
             # This is an optimization for binary search:
