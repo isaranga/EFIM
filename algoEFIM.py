@@ -10,10 +10,11 @@ from Transaction import Transaction
 
 
 class EFIM:
-    def __init__(self, input_file: str, min_util: int, sep: str = " ") -> None:
+    def __init__(self, input_file: str, min_util: int, sep: str = " ", output_file: str = "output.txt") -> None:
         self.input_file: str = input_file
         self.min_util: int = min_util
         self.sep: str = sep
+        self.output_file = output_file
 
         self._start_time: float = 0.0
         self._end_time: float = 0.0
@@ -47,10 +48,10 @@ class EFIM:
         for transaction in self._dataset.transactions:
             transaction.remove_unpromising_items(self._old_names_to_new_names)
 
-        logger.info(f"Transactions after removing unpromising items: {self._dataset.transactions}")
+        # logger.info(f"Transactions after removing unpromising items: {self._dataset.transactions}")
 
         self.sort_dataset(self._dataset.transactions)
-        logger.info(f"Transactions after sorting: {self._dataset.transactions}")
+        # logger.info(f"Transactions after sorting: {self._dataset.transactions}")
 
         # Remove empty transactions
         empty_transactions_count = len([transaction for transaction in self._dataset.transactions
@@ -164,6 +165,7 @@ class EFIM:
         self._candidate_count += len(primary)
 
         for idx, e in enumerate(primary):  # line 1 of Algorithm 2
+            print(f"\rRun search, candidate_count: {self._candidate_count}", end='')
             # ========== PERFORM INTERSECTION =====================
             # Calculate transactions containing P U {e}
             # At the same time project transactions to keep what appears after "e"
@@ -350,9 +352,17 @@ class EFIM:
     def print_results(self) -> None:
         """Prints the results of the EFIM algorithm."""
         print(f"Number of high-utility itemsets: {self._pattern_count}")
-        print("High-utility itemsets:")
-        for pattern, utility in self._final_patterns.items():
-            print(f"\t{pattern} : {utility}")
+
+        with open(f"output/{self.output_file}", "w") as f:
+            for pattern, utility in self._final_patterns.items():
+                f.write(f"{pattern} : {utility}")
+        print(f"High-utility itemsets saved to {self.output_file}")
+
+        #for pattern, utility in self._final_patterns.items():
+        #    print(f"\t{pattern} : {utility}")
+
+        with open("output/output.stat", "a") as f:
+            f.write(f"Dataset\t{self.output_file.split('.')[0]}\tMinutil\t{self.min_util}\tNodes visited\t{self._candidate_count}\tPatterns found\t{self._pattern_count}\tTime\t{self._end_time - self._start_time:.2f}\n\n")
 
 
 def parse_arguments():
@@ -363,6 +373,7 @@ def parse_arguments():
     parser.add_argument("--min_utility", help="The minimum utility threshold.")
     parser.add_argument("--sep", help="The separator used in the input file.", default=" ")
     parser.add_argument("--verbose", help="Prints the logs to stdout.", action="store_true")
+    parser.add_argument("--output_file", help="Output file name to save the patterns found.")
 
     return parser.parse_args()
 
@@ -389,12 +400,12 @@ if __name__ == '__main__':
     input_file = args.input_file
     min_utility = int(args.min_utility)
     sep = args.sep
-
+    output_file = args.output_file
     # Create a logger
     logger = create_logger()
 
     # Run the EFIM algorithm
     logger.info("Starting EFIM algorithm...")
-    efim = EFIM(input_file, min_utility, sep)
+    efim = EFIM(input_file, min_utility, sep, output_file)
     efim.run()
     efim.print_results()
