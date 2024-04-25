@@ -353,16 +353,20 @@ class EFIM:
         """Prints the results of the EFIM algorithm."""
         print(f"Number of high-utility itemsets: {self._pattern_count}")
 
-        with open(f"output/{self.output_file}", "w") as f:
+        with open(f"output/{self.output_file}", "w+") as f:
             for pattern, utility in self._final_patterns.items():
-                f.write(f"{pattern} : {utility}")
+                f.write(f"{pattern} : {utility}\n")
         print(f"High-utility itemsets saved to {self.output_file}")
 
         #for pattern, utility in self._final_patterns.items():
         #    print(f"\t{pattern} : {utility}")
 
-        with open("output/output.stat", "a") as f:
-            f.write(f"Dataset\t{self.output_file.split('.')[0]}\tMinutil\t{self.min_util}\tNodes visited\t{self._candidate_count}\tPatterns found\t{self._pattern_count}\tTime\t{self._end_time - self._start_time:.2f}\n\n")
+        with open("output/output.stat", "w+") as f:
+            f.write(f"Dataset\t{self.output_file.split('.')[0]}\n"
+                    f"Minutil\t{self.min_util}\n"
+                    f"Nodes visited\t{self._candidate_count}\n"
+                    f"Patterns found\t{self._pattern_count}\n"
+                    f"Time\t{self._end_time - self._start_time:.2f}\n\n")
 
 
 def parse_arguments():
@@ -373,7 +377,7 @@ def parse_arguments():
     parser.add_argument("--min_utility", help="The minimum utility threshold.")
     parser.add_argument("--sep", help="The separator used in the input file.", default=" ")
     parser.add_argument("--verbose", help="Prints the logs to stdout.", action="store_true")
-    parser.add_argument("--output_file", help="Output file name to save the patterns found.")
+    parser.add_argument("--output_file", help="Output file name to save the patterns found.", default="output.txt")
 
     return parser.parse_args()
 
