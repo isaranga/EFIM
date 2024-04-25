@@ -72,6 +72,9 @@ class EFIM:
         # Call the recursive Search procedure
         self.search(self._dataset.transactions, secondary, primary, prefix_length=0)
 
+        # the print inside the search() method doesn't print newlines, so we print one here
+        print("")
+
         self._end_time = time.time()
         logger.info(f"EFIM algorithm finished in {self._end_time - self._start_time:.2f} seconds.")
 
