@@ -3,10 +3,18 @@ import functools
 import logging
 import sys
 import time
+from pathlib import Path
 from typing import Union
 
 from Dataset import Dataset
 from Transaction import Transaction
+
+try:
+    import google.colab
+
+    IN_COLAB = True
+except ImportError:
+    IN_COLAB = False
 
 
 class EFIM:
@@ -356,15 +364,19 @@ class EFIM:
         """Prints the results of the EFIM algorithm."""
         print(f"Number of high-utility itemsets: {self._pattern_count}")
 
-        with open(f"output/{self.output_file}", "w+") as f:
+        if IN_COLAB:
+            output_folder = Path("/content/EFIM/output")
+        else:
+            output_folder = Path("output")
+
+        output_path = output_folder / self.output_file
+        with open(output_path, "w+") as f:
             for pattern, utility in self._final_patterns.items():
                 f.write(f"{pattern} : {utility}\n")
         print(f"High-utility itemsets saved to {self.output_file}")
 
-        #for pattern, utility in self._final_patterns.items():
-        #    print(f"\t{pattern} : {utility}")
-
-        with open("output/output.stat", "w+") as f:
+        stat_path = output_folder / "output.stat"
+        with open(stat_path, "w+") as f:
             f.write(f"Dataset\t{self.output_file.split('.')[0]}\n"
                     f"Minutil\t{self.min_util}\n"
                     f"Nodes visited\t{self._candidate_count}\n"
