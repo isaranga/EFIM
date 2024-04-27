@@ -1,6 +1,7 @@
 import argparse
 import functools
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -368,6 +369,9 @@ class EFIM:
             output_folder = Path("/content/EFIM/output")
         else:
             output_folder = Path("output")
+
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
 
         output_path = output_folder / self.output_file
         with open(output_path, "w+") as f:
