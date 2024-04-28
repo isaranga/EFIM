@@ -42,22 +42,36 @@ class EFIM:
         self._start_time = time.time()
         self._dataset = Dataset(self.input_file, self.sep)
         logger.info(f"Items int to str: {sorted(self._dataset.int_to_str.items())}")
-        self.calculate_local_utilities(self._dataset)  # line 2 of Algorithm 1
-        logger.info(f"Local utilities: {[str(key)+'('+self._dataset.int_to_str[key]+'): '+str(val) for key, val in self._utility_bin_array_LU.items()]}")
 
-        # secondary holds the promising items (those having a TWU >= minutil)
-        secondary = [item for item in self._utility_bin_array_LU if self._utility_bin_array_LU[item] >= self.min_util]
+        # Do steps 2-5 of Algorithm 1 in loop
+        len_promising = self._dataset.max_item
+        while 1:
+            self.calculate_local_utilities(self._dataset)  # line 2 of Algorithm 1
+            logger.info(f"Local utilities. id(original_id): {[str(key) + '(' + self._dataset.int_to_str[key] + '): ' + str(val) for key, val in self._utility_bin_array_LU.items()]}")
+
+            # secondary holds the promising items (those having a TWU >= minutil)
+            secondary = [item for item in self._utility_bin_array_LU if self._utility_bin_array_LU[item] >= self.min_util]
+            if not len(secondary) < len_promising:
+                break
+
+            len_promising = len(secondary)
+            for transaction in self._dataset.transactions:
+                transaction.remove_unpromising_items(secondary)
+
+            # To get the same algorithm as in the paper, break after 1 run of this loop
+            # break
+
+            # logger.info(f"Transactions after removing unpromising items: {self._dataset.transactions}")
+
         # Sort by the total order of TWU ascending values (line 4 of Algorithm 1)
-        secondary = sorted(secondary, key=lambda x: self._utility_bin_array_LU[x])
-        logger.info(f"Secondary (sorted by TWU): {[str(x)+'('+self._dataset.int_to_str[x]+')' for x in secondary]}")
+        secondary = self.sort_method(secondary)
+        logger.info(f"Secondary (sorted by TWU). name(original_id): {[str(x) + '(' + self._dataset.int_to_str[x] + ')' for x in secondary]}")
 
         self.rename_promising_items(secondary)
         logger.info(f"Renaming (old name, new name): {[self._dataset.int_to_str[x]+':('+str(x)+', '+str(self._old_names_to_new_names[x])+')' for x in sorted(self._old_names_to_new_names, key=lambda x: self._old_names_to_new_names[x])]}")
 
         for transaction in self._dataset.transactions:
-            transaction.remove_unpromising_items(self._old_names_to_new_names)
-
-        # logger.info(f"Transactions after removing unpromising items: {self._dataset.transactions}")
+            transaction.rename_items(self._old_names_to_new_names)
 
         self.sort_dataset(self._dataset.transactions)
         # logger.info(f"Transactions after sorting: {self._dataset.transactions}")
@@ -72,7 +86,7 @@ class EFIM:
 
         # Calculate the subtree utility of each item in secondary using a utility-bin array
         self.calculate_subtree_utility(self._dataset)
-        logger.info(f"Subtree utilities: {[str(key)+'('+self._dataset.int_to_str[self._new_names_to_old_names[key]]+'): '+str(val) for key, val in self._utility_bin_array_SU.items()]}")
+        logger.info(f"Subtree utilities. new_name(original_id): {[str(key)+'('+self._dataset.int_to_str[self._new_names_to_old_names[key]]+'): '+str(val) for key, val in self._utility_bin_array_SU.items()]}")
 
         # primary holds items in secondary that have a subtree utility >= minutil
         primary = [item for item in secondary if self._utility_bin_array_SU[item] >= self.min_util]
@@ -87,6 +101,11 @@ class EFIM:
         self._end_time = time.time()
         logger.info(f"EFIM algorithm finished in {self._end_time - self._start_time:.2f} seconds.")
 
+    def sort_method(self, secondary):
+        # Sort by the total order of TWU ascending values (line 4 of Algorithm 1)
+        secondary = sorted(secondary, key=lambda x: self._utility_bin_array_LU[x])
+        return secondary
+
     def rename_promising_items(self, secondary):
         """Rename promising items according to the increasing order of TWU.
         This will allow very fast comparison between items later by the algorithm
@@ -100,6 +119,7 @@ class EFIM:
 
     def calculate_local_utilities(self, dataset: Dataset) -> None:
         """Calculates the local utilities of all items in the dataset by using utility-bin array."""
+        self._utility_bin_array_LU = {}
         for transaction in dataset.transactions:
             for item in transaction.items:
                 if item in self._utility_bin_array_LU:
@@ -175,19 +195,17 @@ class EFIM:
         """
         # update the number of candidates explored so far
         self._candidate_count += len(primary)
+        print(f"\rRun search, candidate_count: {self._candidate_count}", end='')
 
         for idx, e in enumerate(primary):  # line 1 of Algorithm 2
-            print(f"\rRun search, candidate_count: {self._candidate_count}", end='')
             # ========== PERFORM INTERSECTION =====================
             # Calculate transactions containing P U {e}
             # At the same time project transactions to keep what appears after "e"
-            transactions_Pe: list[Transaction] = []  # --> alpha - D in the paper
+            transactions_Pe: list[Transaction] = []  # --> beta - D in the paper
             # variable to calculate the utility of P U {e}
             utility_Pe: int = 0  # --> u(beta) in the paper
             # --> scan alpha - D (line 3 of Algorithm 2)
-            transactions_Pe, utility_Pe = self.scan_database(e, prefix_length, transactions_Pe, transactions_of_P,
-                                                             utility_Pe)
-
+            transactions_Pe, utility_Pe = self.scan_database(e, prefix_length, transactions_Pe, transactions_of_P, utility_Pe)
             # --> line 4 of Algorithm 2
             # if the utility of PU{e} is enough to be a high utility itemset
             if utility_Pe >= self.min_util:
@@ -209,7 +227,7 @@ class EFIM:
                 elif self._utility_bin_array_LU[item_k] >= self.min_util:
                     new_secondary.append(item_k)
 
-            # --> line 7 of Algorithm 2
+            # --> line 8 of Algorithm 2
             if len(transactions_Pe) != 0:
                 self.search(transactions_Pe, new_secondary, new_primary, prefix_length + 1)
 
@@ -303,7 +321,7 @@ class EFIM:
 
             # make also the sum of transaction utility and prefix utility
             transaction1.transaction_utility += transaction2.transaction_utility
-            transaction1.prefix_utility += transaction2.transaction_utility
+            transaction1.prefix_utility += transaction2.prefix_utility
 
         return transaction1
 
@@ -361,7 +379,7 @@ class EFIM:
                     self._utility_bin_array_LU[item] += transaction.transaction_utility + transaction.prefix_utility
                 i -= 1
 
-    def print_results(self) -> None:
+    def print_results(self, f_type) -> None:
         """Prints the results of the EFIM algorithm."""
         print(f"Number of high-utility itemsets: {self._pattern_count}")
 
@@ -380,13 +398,13 @@ class EFIM:
         print(f"High-utility itemsets saved to {self.output_file}")
 
         stat_path = output_folder / "output.stat"
-        with open(stat_path, "w+") as f:
-            f.write(f"Dataset\t{self.output_file.split('.')[0]}\n"
-                    f"Minutil\t{self.min_util}\n"
-                    f"Nodes visited\t{self._candidate_count}\n"
-                    f"Patterns found\t{self._pattern_count}\n"
-                    f"Time\t{self._end_time - self._start_time:.2f}\n\n")
+        if not os.path.exists(stat_path):
+            with open(stat_path, "w") as f:
+                f.write(f"Type\tDataset\tMinutil\tNodes\tPatterns\tTime\n")
 
+        with open(stat_path, "a") as f:
+            f.write(f"{f_type}\t{self.output_file.split('.')[0]}\t{self.min_util}\t{self._candidate_count}\t"
+                    f"{self._pattern_count}\t{self._end_time - self._start_time:.2f}\n")
 
 def parse_arguments():
     """Parses the commandline arguments."""
@@ -431,4 +449,4 @@ if __name__ == '__main__':
     logger.info("Starting EFIM algorithm...")
     efim = EFIM(input_file, min_utility, sep, output_file)
     efim.run()
-    efim.print_results()
+    efim.print_results(f_type="enhance")
