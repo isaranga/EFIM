@@ -1,0 +1,9 @@
+1. During algorithm 1, after step 5 (removing items that are not in secondary
+because those items cannot be in any high-utility pattern), LU's of all items are
+probably changed (can only change downwards). Then, some of them may be lower than
+minutil, but they are not recalculated during the algorithm. Does it change anything
+if they are recalculated before step 7 (calculation of SU) and forward steps?
+Let's try to put steps 2-5 in a loop, having new unpromising items removed over and over
+(and order of items reevaluated), until there aren't LU's lower than minutil.
+It can be proved easily that items with "new" LU lower than minutil are unpromising and
+can be removed from dataset, experiments will show if it helps performance.
