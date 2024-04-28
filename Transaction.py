@@ -14,17 +14,31 @@ class Transaction:
     def __repr__(self) -> str:
         return f"Transaction({self.items}, {self.transaction_utility}, {self.utilities})"
 
-    def remove_unpromising_items(self, old_names_to_new_names: dict) -> None:
-        """This method removes unpromising items from the transaction and at the same time rename items
-        from old names to new names."""
+    def rename_items(self, old_names_to_new_name: dict) -> None:
+        """This method renames items from their old name to the new name obtained by the sort method"""
+        temp_items = []
+        temp_utilities = []
+
+        for idx, item in enumerate(self.items):
+            temp_items.append(old_names_to_new_name[item])
+            temp_utilities.append(self.utilities[idx])
+
+        self.items = temp_items
+        self.utilities = temp_utilities
+
+        # Sort by increasing values
+        self.insertion_sort()
+
+    def remove_unpromising_items(self, promising_items: list) -> None:
+        """This method removes unpromising items from the transaction."""
         temp_items = []
         temp_utilities = []
 
         for idx, item in enumerate(self.items):
             # if the item is promising (it has a new name), then we keep it and its utility,
             # otherwise we subtract its utility from the transaction utility
-            if item in old_names_to_new_names:
-                temp_items.append(old_names_to_new_names[item])
+            if item in promising_items:
+                temp_items.append(item)
                 temp_utilities.append(self.utilities[idx])
             else:
                 self.transaction_utility -= self.utilities[idx]
@@ -32,11 +46,8 @@ class Transaction:
         self.items = temp_items
         self.utilities = temp_utilities
 
-        # Sort by increasing TWU values
-        self.insertion_sort()
-
     def insertion_sort(self) -> None:
-        """Sorts the items of the transaction by increasing order of TWU values."""
+        """Sorts the items of the transaction by increasing order values (obtained by the sort method)."""
         for i in range(1, len(self.items)):
             key = self.items[i]
             utility_j = self.utilities[i]
