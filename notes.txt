@@ -7,3 +7,12 @@ Let's try to put steps 2-5 in a loop, having new unpromising items removed over 
 (and order of items reevaluated), until there aren't LU's lower than minutil.
 It can be proved easily that items with "new" LU lower than minutil are unpromising and
 can be removed from dataset, experiments will show if it helps performance.
+
+2. Following the same idea of recalculating LU and SU after unpromising items are removed
+from transaction, same can be done in algorithm 2. We put steps 5-7 in a loop, and add step 7.5
+(after 7 and before 8) that called minimizing dataset. We check each transaction in beta-D and remove
+from it any items that are not in "secondary", meaning they can not be a part of high utility pattern
+in this branch of the tree anyway. Then we go back to step 5. Using that, we can get a final group of
+"primary" items that is smaller if we don't recalculate those boundaries. We stop the loop when length
+of new_secondary is no smaller than the length of previous secondary set, meaning we can't minimize
+the dataset further.
