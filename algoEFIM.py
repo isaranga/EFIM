@@ -215,23 +215,72 @@ class EFIM:
 
             # Next, we calculate the Local Utility and Sub-tree utility
             # of all items that could be appended to P U {e}
-            self._calculate_upper_bounds(transactions_Pe, idx, secondary)
+            e_idx_secondary = secondary.index(e)
+            e_secondary = secondary[e_idx_secondary+1:]
+            len_promising = len(e_secondary)
+            new_secondary = e_secondary
+            while 1:
+                self._calculate_upper_bounds(transactions_Pe, -1, new_secondary)  # (transactions_Pe, idx, new_secondary)
 
-            # We create new lists of secondary and primary items
-            # --> lines 5-6 of Algorithm 2
-            new_secondary: list[int] = []
-            new_primary: list[int] = []
-            for k in range(idx + 1, len(secondary)):
-                item_k = secondary[k]
-                if self._utility_bin_array_SU[item_k] >= self.min_util:
-                    new_secondary.append(item_k)
-                    new_primary.append(item_k)
-                elif self._utility_bin_array_LU[item_k] >= self.min_util:
-                    new_secondary.append(item_k)
+                # We create new lists of secondary and primary items
+                # --> lines 5-6 of Algorithm 2
+                new_secondary: list[int] = []
+                new_primary: list[int] = []
+                for k in range(0, len(e_secondary)):
+                    item_k = e_secondary[k]
+                    if item_k > e:
+                        if self._utility_bin_array_SU[item_k] >= self.min_util:
+                            new_secondary.append(item_k)
+                            new_primary.append(item_k)
+                        elif self._utility_bin_array_LU[item_k] >= self.min_util:
+                            new_secondary.append(item_k)
+
+                if not len(new_secondary) < len_promising:
+                    break
+                if len(new_primary) == 0:
+                    break
+                if self.type == 'base' or self.type == 'exp1':
+                    break
+                e_secondary = new_secondary
+                len_promising = len(new_secondary)
+                # Minimize dataset by removing unpromising items
+                transactions_Pe = self.minimizing_dataset(transactions_Pe, new_secondary)
 
             # --> line 8 of Algorithm 2
             if len(transactions_Pe) != 0:
                 self.search(transactions_Pe, new_secondary, new_primary, prefix_length + 1)
+
+    def minimizing_dataset(self, transactions_Pe, secondary):
+        """Each item that is not in secondary can be removed from transactions, as it cannot be part
+        of a high utility pattern"""
+        minimized_transactions_Pe = []
+        previous_transaction: Transaction = transactions_Pe[0]
+        consecutive_merge_count: int = 0
+
+        for transaction in transactions_Pe:
+            new_transaction = Transaction(transaction.items, transaction.transaction_utility, transaction.utilities)
+            new_transaction.offset = transaction.offset
+            new_transaction.prefix_utility = transaction.prefix_utility
+
+            new_transaction.remove_unpromising_items(secondary)
+
+            if previous_transaction == transactions_Pe[0]:
+                previous_transaction = new_transaction
+            elif self._is_equal(new_transaction, previous_transaction):
+                # we merge the transaction with the previous one
+                is_first_merge = consecutive_merge_count == 0
+                previous_transaction = self.merge_transactions(is_first_merge, previous_transaction, new_transaction)
+                consecutive_merge_count += 1
+            else:
+                # if the transaction is not equal to the preceding transaction
+                # we cannot merge it, so we just add it to the database
+                minimized_transactions_Pe.append(previous_transaction)
+                previous_transaction = new_transaction
+                consecutive_merge_count = 0
+
+        minimized_transactions_Pe.append(previous_transaction)
+
+        return minimized_transactions_Pe
 
     def scan_database(self, e, prefix_length, transactions_Pe, transactions_of_P, utility_Pe):
         """Scan the database to calculate the utility of P U {e} and project transactions to obtain transactions_Pe."""
@@ -374,7 +423,7 @@ class EFIM:
             i = len(transaction.items) - 1
             while i >= transaction.offset:
                 item = transaction.items[i]
-                # if the item is promising
+                # if item is promising
                 if item in secondary:
                     sum_remaining_utility += transaction.utilities[i]
                     self._utility_bin_array_SU[item] += sum_remaining_utility + transaction.prefix_utility
@@ -402,11 +451,12 @@ class EFIM:
         stat_path = output_folder / "output.stat"
         if not os.path.exists(stat_path):
             with open(stat_path, "w") as f:
-                f.write(f"Type\tDataset\tMinutil\tNodes\tPatterns\tTime\n")
+                f.write(f"Type\t\tDataset\t\tMinutil\t\tNodes\t\tPatterns\t\tTime\n")
 
         with open(stat_path, "a") as f:
-            f.write(f"{f_type}\t{self.output_file.split('.')[0]}\t{self.min_util}\t{self._candidate_count}\t"
-                    f"{self._pattern_count}\t{self._end_time - self._start_time:.2f}\n")
+            f.write(f"{f_type}\t\t{self.output_file.split('.')[0]}\t\t{self.min_util}\t\t{self._candidate_count}\t\t"
+                    f"{self._pattern_count}\t\t{self._end_time - self._start_time:.2f}\n")
+
 
 def parse_arguments():
     """Parses the commandline arguments."""
@@ -439,7 +489,7 @@ def create_logger() -> logging.Logger:
 if __name__ == '__main__':
     # Commandline arguments parsing
     args = parse_arguments()
-    f_type = 'base'     # base / enhanced
+    f_type = 'base'     # base / exp1 / exp2
     input_file = args.input_file
     min_utility = int(args.min_utility)
     sep = args.sep
