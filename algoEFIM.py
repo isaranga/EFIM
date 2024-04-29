@@ -19,7 +19,7 @@ except ImportError:
 
 
 class EFIM:
-    def __init__(self, input_file: str, min_util: int, sep: str = " ", output_file: str = "output.txt", f_type: str = 'base') -> None:
+    def __init__(self, input_file: str, min_util: int, sep: str = " ", output_file: str = "output.txt", logger=None, f_type: str = 'base') -> None:
         self.input_file: str = input_file
         self.min_util: int = min_util
         self.sep: str = sep
@@ -27,6 +27,7 @@ class EFIM:
 
         self._start_time: float = 0.0
         self._end_time: float = 0.0
+        self.logger = logger
         self._dataset: Union[Dataset, None] = None
         self._utility_bin_array_LU: dict = {}
         self._utility_bin_array_SU: dict = {}
@@ -42,13 +43,13 @@ class EFIM:
         """Starts the EFIM algorithm."""
         self._start_time = time.time()
         self._dataset = Dataset(self.input_file, self.sep)
-        logger.info(f"Items int to str: {sorted(self._dataset.int_to_str.items())}")
+        self.logger.info(f"Items int to str: {sorted(self._dataset.int_to_str.items())}")
 
         # Do steps 2-5 of Algorithm 1 in loop
         len_promising = self._dataset.max_item
         while 1:
             self.calculate_local_utilities(self._dataset)  # line 2 of Algorithm 1
-            logger.info(f"Local utilities. id(original_id): {[str(key) + '(' + self._dataset.int_to_str[key] + '): ' + str(val) for key, val in self._utility_bin_array_LU.items()]}")
+            self.logger.info(f"Local utilities. id(original_id): {[str(key) + '(' + self._dataset.int_to_str[key] + '): ' + str(val) for key, val in self._utility_bin_array_LU.items()]}")
 
             # secondary holds the promising items (those having a TWU >= minutil)
             secondary = [item for item in self._utility_bin_array_LU if self._utility_bin_array_LU[item] >= self.min_util]
@@ -63,20 +64,20 @@ class EFIM:
             if self.type == 'base':
                 break
 
-            # logger.info(f"Transactions after removing unpromising items: {self._dataset.transactions}")
+            # self.logger.info(f"Transactions after removing unpromising items: {self._dataset.transactions}")
 
         # Sort by the total order of TWU ascending values (line 4 of Algorithm 1)
         secondary = self.sort_method(secondary)
-        logger.info(f"Secondary (sorted by TWU). name(original_id): {[str(x) + '(' + self._dataset.int_to_str[x] + ')' for x in secondary]}")
+        self.logger.info(f"Secondary (sorted by TWU). name(original_id): {[str(x) + '(' + self._dataset.int_to_str[x] + ')' for x in secondary]}")
 
         self.rename_promising_items(secondary)
-        logger.info(f"Renaming (old name, new name): {[self._dataset.int_to_str[x]+':('+str(x)+', '+str(self._old_names_to_new_names[x])+')' for x in sorted(self._old_names_to_new_names, key=lambda x: self._old_names_to_new_names[x])]}")
+        self.logger.info(f"Renaming (old name, new name): {[self._dataset.int_to_str[x]+':('+str(x)+', '+str(self._old_names_to_new_names[x])+')' for x in sorted(self._old_names_to_new_names, key=lambda x: self._old_names_to_new_names[x])]}")
 
         for transaction in self._dataset.transactions:
             transaction.rename_items(self._old_names_to_new_names)
 
         self.sort_dataset(self._dataset.transactions)
-        # logger.info(f"Transactions after sorting: {self._dataset.transactions}")
+        # self.logger.info(f"Transactions after sorting: {self._dataset.transactions}")
 
         # Remove empty transactions
         empty_transactions_count = len([transaction for transaction in self._dataset.transactions
@@ -84,15 +85,15 @@ class EFIM:
         # To remove empty transactions, we just ignore the first transactions of the dataset, since transactions
         # are sorted by size and therefore empty transactions are always at the begining of the dataset
         self._dataset.transactions = self._dataset.transactions[empty_transactions_count:]
-        logger.info(f"{empty_transactions_count} empty transactions removed.")
+        self.logger.info(f"{empty_transactions_count} empty transactions removed.")
 
         # Calculate the subtree utility of each item in secondary using a utility-bin array
         self.calculate_subtree_utility(self._dataset)
-        logger.info(f"Subtree utilities. new_name(original_id): {[str(key)+'('+self._dataset.int_to_str[self._new_names_to_old_names[key]]+'): '+str(val) for key, val in self._utility_bin_array_SU.items()]}")
+        self.logger.info(f"Subtree utilities. new_name(original_id): {[str(key)+'('+self._dataset.int_to_str[self._new_names_to_old_names[key]]+'): '+str(val) for key, val in self._utility_bin_array_SU.items()]}")
 
         # primary holds items in secondary that have a subtree utility >= minutil
         primary = [item for item in secondary if self._utility_bin_array_SU[item] >= self.min_util]
-        logger.info(f"Primary: {primary}")
+        self.logger.info(f"Primary: {primary}")
 
         # Call the recursive Search procedure
         self.search(self._dataset.transactions, secondary, primary, prefix_length=0)
@@ -101,7 +102,7 @@ class EFIM:
         print("")
 
         self._end_time = time.time()
-        logger.info(f"EFIM algorithm finished in {self._end_time - self._start_time:.2f} seconds.")
+        self.logger.info(f"EFIM algorithm finished in {self._end_time - self._start_time:.2f} seconds.")
 
     def sort_method(self, secondary):
         # Sort by the total order of TWU ascending values (line 4 of Algorithm 1)
@@ -471,12 +472,12 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def create_logger() -> logging.Logger:
+def create_logger(verbose) -> logging.Logger:
     """Creates a logger."""
     logger: logging.Logger = logging.getLogger(__name__)
 
     # log, and if verbose print the logs to stdout
-    if args.verbose:
+    if verbose:
         try:
             logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='[%(asctime)s] %(message)s', force=True)
         except ValueError:
@@ -496,10 +497,10 @@ if __name__ == '__main__':
     output_file: str = args.output_file
     output_file = output_file.rsplit('.', 1)[0]+f'_{f_type}.'+output_file.rsplit('.', 1)[1]
     # Create a logger
-    logger = create_logger()
+    logger = create_logger(args.verbose)
 
     # Run the EFIM algorithm
     logger.info("Starting EFIM algorithm...")
-    efim = EFIM(input_file, min_utility, sep, output_file, f_type)
+    efim = EFIM(input_file, min_utility, sep, output_file, logger, f_type)
     efim.run()
     efim.print_results(f_type=f_type)
