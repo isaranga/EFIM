@@ -34,17 +34,19 @@ class Transaction:
         temp_items = []
         temp_utilities = []
 
-        for idx, item in enumerate(self.items):
-            # if the item is promising (it has a new name), then we keep it and its utility,
+        for idx, item in enumerate(self.items[self.offset:]):
+            # if the item is promising, we keep it and its utility,
             # otherwise we subtract its utility from the transaction utility
             if item in promising_items:
                 temp_items.append(item)
-                temp_utilities.append(self.utilities[idx])
+                temp_utilities.append(self.utilities[idx+self.offset])
             else:
-                self.transaction_utility -= self.utilities[idx]
+                self.transaction_utility -= self.utilities[idx+self.offset]
 
         self.items = temp_items
         self.utilities = temp_utilities
+
+        self.offset = 0
 
     def insertion_sort(self) -> None:
         """Sorts the items of the transaction by increasing order values (obtained by the sort method)."""
