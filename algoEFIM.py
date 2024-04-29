@@ -19,7 +19,7 @@ except ImportError:
 
 
 class EFIM:
-    def __init__(self, input_file: str, min_util: int, sep: str = " ", output_file: str = "output.txt") -> None:
+    def __init__(self, input_file: str, min_util: int, sep: str = " ", output_file: str = "output.txt", f_type: str = 'base') -> None:
         self.input_file: str = input_file
         self.min_util: int = min_util
         self.sep: str = sep
@@ -36,6 +36,7 @@ class EFIM:
         self._temp: list[int] = [0] * 5000
         self._pattern_count: int = 0
         self._final_patterns: dict = {}
+        self.type = f_type
 
     def run(self) -> None:
         """Starts the EFIM algorithm."""
@@ -59,7 +60,8 @@ class EFIM:
                 transaction.remove_unpromising_items(secondary)
 
             # To get the same algorithm as in the paper, break after 1 run of this loop
-            # break
+            if self.type == 'base':
+                break
 
             # logger.info(f"Transactions after removing unpromising items: {self._dataset.transactions}")
 
@@ -437,16 +439,17 @@ def create_logger() -> logging.Logger:
 if __name__ == '__main__':
     # Commandline arguments parsing
     args = parse_arguments()
-
+    f_type = 'base'     # base / enhanced
     input_file = args.input_file
     min_utility = int(args.min_utility)
     sep = args.sep
-    output_file = args.output_file
+    output_file: str = args.output_file
+    output_file = output_file.rsplit('.', 1)[0]+f'_{f_type}.'+output_file.rsplit('.', 1)[1]
     # Create a logger
     logger = create_logger()
 
     # Run the EFIM algorithm
     logger.info("Starting EFIM algorithm...")
-    efim = EFIM(input_file, min_utility, sep, output_file)
+    efim = EFIM(input_file, min_utility, sep, output_file, f_type)
     efim.run()
-    efim.print_results(f_type="enhance")
+    efim.print_results(f_type=f_type)
