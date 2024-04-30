@@ -2,14 +2,14 @@ from algoEFIM import EFIM
 from algoEFIM import create_logger
 
 if __name__ == '__main__':
-    datasets = [#'accidents',
-                #'bms',
-                #'chess',
+    datasets = ['accidents',
+                'bms',
+                'chess',
                 'connect',
                 'foodmart',
                 'mushroom',
                 'chainstore',
-                'pumnsb',
+                'pumsb',
                 'kosarak']
     minutils = {'accidents': [17500, 20000, 22500, 25000, 27500],
                 'bms': [2240, 2250, 2260, 2270, 2280],
@@ -18,7 +18,7 @@ if __name__ == '__main__':
                 'foodmart': [0.001, 1, 2, 2.5, 3],
                 'mushroom': [80, 85, 90, 95, 100],
                 'chainstore': [2000, 2500, 3000, 3500, 4000],
-                'pumnsb': [12100, 12200, 12300, 12400, 12500],
+                'pumsb': [12100, 12200, 12300, 12400, 12500],
                 'kosarak': [1100, 1200, 1300, 1400, 1500]}          # in thousands
 
     # Create a logger
