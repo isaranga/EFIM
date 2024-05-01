@@ -1,7 +1,7 @@
 Implementation of the EFIM algorithm.
 
 ```
-usage: algoEFIM.py [-h] [--min_utility MIN_UTILITY] [--sep SEP] [--verbose] input_file
+usage: algoEFIM.py [-h] [--min_utility MIN_UTILITY] [--sep SEP] [--verbose] input_file <input_file> --output_file <output_file>
 
 positional arguments:
   input_file            The input file containing the transactions.
