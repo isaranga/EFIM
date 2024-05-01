@@ -14,4 +14,10 @@ optional arguments:
   --verbose             Prints the logs to stdout.
 ```
 For example:
-```algoEFIM.py example-Zida.txt --min_utility 30 --verbose ```
+```algoEFIM.py example-Zida.txt --min_utility 30 --verbose --output_file output.txt ```
+
+An easy-to-use notebook is attached to example a running of the algorithm.
+To run this notebook make sure you run on google colab.
+The notebook examples the run of one dataset: bms, as the others are taking too much time (run time in colab is longer than offline).
+Download the dataset/bms.ds file and drop it into your notebook run folder.
+Then, run the cells by their order.
